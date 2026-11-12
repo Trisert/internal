@@ -465,6 +465,19 @@ button.link:hover:not(:disabled) { background: none; color: var(--text); }
 #app-header .user { display: flex; align-items: center; gap: 8px; margin-left: auto; font-size: 0.8125rem; }
 #app-header #user-name { color: var(--text); font-weight: 500; }
 
+/* Logout matches the theme toggle: no chrome until hover. */
+#app-header #logout-btn {
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+#app-header #logout-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: transparent;
+}
+
 .badge {
   padding: 3px 7px;
   border: 1px solid var(--border);
