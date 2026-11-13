@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>J2050 Team Management – Account</title>
+  <script>
+    // Apply the saved theme before the first paint (key documented in js/theme.js).
+    try {
+      const saved = localStorage.getItem('j2050-theme');
+      document.documentElement.dataset.theme =
+        saved === 'dark' || saved === 'light' ? saved
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch {
+      document.documentElement.dataset.theme =
+        matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css"></head>
+<body>
+  <header id="app-header"></header>
+  <main id="app-main" class="narrow">
+    <h1>Account</h1>
+
+    <section class="card">
+      <h2>Profile</h2>
+      <p class="hint" id="account-email"></p>
+      <form id="name-form" class="stack" novalidate>
+        <label for="first-name">First name</label>
+        <input id="first-name" type="text" maxlength="60" autocomplete="given-name" required>
+        <label for="last-name">Last name</label>
+        <input id="last-name" type="text" maxlength="60" autocomplete="family-name" required>
+        <button id="name-btn" type="submit">Save name</button>
+        <p id="name-msg" class="message" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Change password</h2>
+      <form id="password-form" class="stack" novalidate>
+        <label for="password">New password (at least 12 characters)</label>
+        <input id="password" type="password" autocomplete="new-password" required>
+        <label for="password2">Repeat new password</label>
+        <input id="password2" type="password" autocomplete="new-password" required>
+        <button id="password-btn" type="submit">Change password</button>
+        <p id="password-msg" class="message" role="alert" hidden></p>
+      </form>
+    </section>
+  </main>
+
+  <script type="module">
+    import { supabase } from './js/config.js';
+    import { initProtectedPage, checkPassword, friendlyError, showMessage } from './js/auth.js';
+
+    const profile = await initProtectedPage('account');
+    if (profile) {
+      document.getElementById('account-email').textContent = profile.email ?? '';
+      document.getElementById('first-name').value = profile.first_name ?? '';
+      document.getElementById('last-name').value = profile.last_name ?? '';
+
+      // Name
+      const nameMsg = document.getElementById('name-msg');
+      document.getElementById('name-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const firstName = document.getElementById('first-name').value.trim();
+        const lastName = document.getElementById('last-name').value.trim();
+        if (!firstName || !lastName) {
+          showMessage(nameMsg, 'First name and last name are both required.');
+          return;
+        }
+        const { error } = await supabase
+          .from('profiles')
+          .update({ first_name: firstName, last_name: lastName })
+          .eq('id', profile.id);
+        if (error) { showMessage(nameMsg, friendlyError(error)); return; }
+        document.getElementById('user-name').textContent = `${firstName} ${lastName}`;
+        showMessage(nameMsg, 'Name saved.', 'success');
+      });
+
+      // Password
+      const pwMsg = document.getElementById('password-msg');
+      document.getElementById('password-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const password = document.getElementById('password').value;
+        const password2 = document.getElementById('password2').value;
+        const check = checkPassword(password, password2);
+        if (check) { showMessage(pwMsg, check); return; }
+
+        const button = document.getElementById('password-btn');
+        button.disabled = true;
+        const { error } = await supabase.auth.updateUser({ password });
+        button.disabled = false;
+        if (error) { showMessage(pwMsg, friendlyError(error)); return; }
+        event.target.reset();
+        showMessage(pwMsg, 'Password changed.', 'success');
+      });
+    }
+  </script>
+</body>
+</html>

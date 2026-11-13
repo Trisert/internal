@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>J2050 Team Management – Set new password</title>
+  <script>
+    // Apply the saved theme before the first paint (key documented in js/theme.js).
+    try {
+      const saved = localStorage.getItem('j2050-theme');
+      document.documentElement.dataset.theme =
+        saved === 'dark' || saved === 'light' ? saved
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch {
+      document.documentElement.dataset.theme =
+        matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/theme.js"></script>
+</head>
+<body class="login-page">
+  <main class="login-box">
+    <div class="auth-brand">
+      <span class="brand-logo" role="img" aria-label="J2050">
+        <img class="logo-on-light" src="img/j2050-logo-light.png" width="239" height="88" alt="">
+        <img class="logo-on-dark" src="img/j2050-logo-dark.png" width="241" height="88" alt="">
+      </span>
+      <span class="brand-sub">University of Padova</span>
+    </div>
+    <h1>Set new password</h1>
+    <form id="reset-form" hidden novalidate>
+      <label for="password">New password (at least 12 characters)</label>
+      <input id="password" type="password" autocomplete="new-password" required>
+      <label for="password2">Repeat new password</label>
+      <input id="password2" type="password" autocomplete="new-password" required>
+      <button id="reset-btn" type="submit">Save password</button>
+    </form>
+    <p id="reset-msg" class="message" role="alert" hidden></p>
+    <p class="links"><a href="index.html">Back to login</a></p>
+    <p class="auth-foot">Internal tool · Authorised members only</p>
+  </main>
+
+  <script type="module">
+    import { supabase } from './js/config.js';
+    import { checkPassword, friendlyError, showMessage } from './js/auth.js';
+
+    const form = document.getElementById('reset-form');
+    const msg = document.getElementById('reset-msg');
+
+    // The link in the email opens this page with a temporary session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      showMessage(msg, 'The link is invalid or expired. Request a new one from "Forgot password?".');
+    } else {
+      form.hidden = false;
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const password = document.getElementById('password').value;
+      const password2 = document.getElementById('password2').value;
+      const check = checkPassword(password, password2);
+      if (check) { showMessage(msg, check); return; }
+
+      const button = document.getElementById('reset-btn');
+      button.disabled = true;
+      const { error } = await supabase.auth.updateUser({ password });
+      button.disabled = false;
+      if (error) { showMessage(msg, friendlyError(error)); return; }
+
+      form.hidden = true;
+      showMessage(msg, 'Password saved. You can now use the site.', 'success');
+      setTimeout(() => window.location.replace('index.html'), 2000);
+    });
+  </script>
+</body>
+</html>

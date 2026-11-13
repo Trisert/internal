@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>J2050 Team Management – Gantt</title>
+  <script>
+    // Apply the saved theme before the first paint (key documented in js/theme.js).
+    try {
+      const saved = localStorage.getItem('j2050-theme');
+      document.documentElement.dataset.theme =
+        saved === 'dark' || saved === 'light' ? saved
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch {
+      document.documentElement.dataset.theme =
+        matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/gantt.css">
+</head>
+<body>
+  <header id="app-header"></header>
+  <main id="app-main" style="max-width:none">
+    <div class="g-top">
+      <div>
+        <h1>Project plan</h1>
+        <p class="g-sub" id="g-sub">RedPill (J2050)</p>
+      </div>
+      <ul class="stats" id="stats"></ul>
+    </div>
+    <nav class="g-nav" id="g-nav" aria-label="Views"></nav>
+    <div id="view"><p class="hint">Loading…</p></div>
+  </main>
+  <div id="g-modal" class="modal" hidden></div>
+  <div id="toast" hidden></div>
+
+  <script type="module" src="js/gantt.js"></script>
+</body>
+</html>

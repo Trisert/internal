@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>J2050 Team Management – Lab shifts</title>
+  <script>
+    // Apply the saved theme before the first paint (key documented in js/theme.js).
+    try {
+      const saved = localStorage.getItem('j2050-theme');
+      document.documentElement.dataset.theme =
+        saved === 'dark' || saved === 'light' ? saved
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch {
+      document.documentElement.dataset.theme =
+        matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/shifts.css">
+</head>
+<body>
+  <header id="app-header"></header>
+  <main id="app-main">
+    <div class="s-top">
+      <h1>Lab shifts</h1>
+      <div class="s-actions" id="s-actions"></div>
+    </div>
+    <div class="s-tools" id="s-tools"></div>
+    <ul class="s-legend">
+      <li><span class="sw free"></span>Free seats</li>
+      <li><span class="sw full"></span>Full</li>
+      <li><span class="sw mine"></span>You are booked</li>
+      <li><span class="sw req"></span>Pending request</li>
+      <li><span class="sw past"></span>Past</li>
+      <li><span class="sw nosup"></span>Hour without supervisor (bar in the block)</li>
+    </ul>
+    <div id="weeks"><p class="hint">Loading…</p></div>
+    <section id="requests"></section>
+  </main>
+  <div id="modal" class="modal" hidden></div>
+  <div id="toast" hidden></div>
+
+  <script type="module" src="js/shifts.js"></script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>J2050 Team Management – Stats</title>
+  <script>
+    // Apply the saved theme before the first paint (key documented in js/theme.js).
+    try {
+      const saved = localStorage.getItem('j2050-theme');
+      document.documentElement.dataset.theme =
+        saved === 'dark' || saved === 'light' ? saved
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch {
+      document.documentElement.dataset.theme =
+        matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .st-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin-bottom: 14px; }
+    .st-tools > div { display: grid; gap: 4px; }
+    .st-tools button { min-height: 32px; padding: 0 10px; font-size: 0.8125rem; }
+    .st-nav {
+      display: inline-flex;
+      gap: 2px;
+      margin: 4px 0 14px;
+      padding: 3px;
+      background: var(--surface-2);
+      border-radius: var(--radius);
+      box-shadow: inset 0 0 0 1px var(--border);
+    }
+    .st-nav a { padding: 5px 11px; border-radius: 6px; color: var(--muted); font-size: 0.8125rem; font-weight: 500; text-decoration: none; }
+    .st-nav a:hover { color: var(--text); }
+    .st-nav a[aria-current="page"] { color: var(--text); background: var(--surface); box-shadow: var(--shadow-sm); }
+    .kpi { display: flex; flex-wrap: wrap; gap: 8px 26px; list-style: none; padding: 0; margin: 0 0 14px; }
+    .kpi li {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-family: var(--font-mono);
+      font-size: 0.625rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .kpi b { font-family: var(--font-body); font-size: 1.25rem; font-weight: 600; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    tr.sub td:first-child { padding-left: 24px; }
+    tr.total td { font-weight: 600; border-top: 1px solid var(--border-strong); }
+    .bar { display: inline-block; height: 6px; background: var(--accent); border-radius: 999px; vertical-align: middle; margin-right: 8px; }
+    .code { padding: 0 5px; border-radius: 4px; background: var(--surface-2); font-family: var(--font-mono); font-size: 0.6875rem; color: var(--text); }
+    .matrix td, .matrix th { white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <header id="app-header"></header>
+  <main id="app-main">
+    <h1>Stats</h1>
+    <p class="hint">Hours of lab shifts already ended: participants (booked) and supervisors. Participants who did not attend shall be removed from the shift by an administrator (possible also for past shifts). Task hours are person-hours, supervision included.</p>
+    <div class="st-tools" id="tools"></div>
+    <ul class="kpi" id="kpi"></ul>
+    <nav class="st-nav" id="nav" aria-label="Views"></nav>
+    <div id="view"><p class="hint">Loading…</p></div>
+  </main>
+
+  <script type="module" src="js/stats.js"></script>
+</body>
+</html>

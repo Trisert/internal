@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>J2050 Team Management – Members</title>
+  <script>
+    // Apply the saved theme before the first paint (key documented in js/theme.js).
+    try {
+      const saved = localStorage.getItem('j2050-theme');
+      document.documentElement.dataset.theme =
+        saved === 'dark' || saved === 'light' ? saved
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch {
+      document.documentElement.dataset.theme =
+        matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css"></head>
+<body>
+  <header id="app-header"></header>
+  <main id="app-main">
+    <h1>Members</h1>
+    <p id="members-msg" class="message" role="alert" hidden></p>
+    <div id="members-sections"></div>
+  </main>
+
+  <script type="module">
+    import { supabase } from './js/config.js';
+    import { initProtectedPage, friendlyError, showMessage } from './js/auth.js';
+    import { formatDate, formatDateTime } from './js/format.js';
+
+    const TEAMS = ['SYS', 'ELE', 'SFW', 'AOCS', 'THM', 'TTC', 'OUT', 'MGT'];
+    const TEAM_NAMES = { SYS: 'Systems', ELE: 'Electronics', SFW: 'Software', AOCS: 'AOCS', THM: 'Thermal-mechanical', TTC: 'Telecommunications', OUT: 'Outreach', MGT: 'Management' };
+    const ROLES = [['user', 'User'], ['teamleader', 'Teamleader'], ['admin', 'Admin']];
+
+    const me = await initProtectedPage('members', { adminOnly: true });
+    const msg = document.getElementById('members-msg');
+    const container = document.getElementById('members-sections');
+    let MEMBERS = [];
+    let LEADERS = new Map();   // team -> leader id
+
+    const SECTIONS = [
+      { title: 'Awaiting approval', filter: (m) => m.status === 'pending' && m.email_confirmed },
+      { title: 'Active members', filter: (m) => m.status === 'active' },
+      { title: 'Disabled', filter: (m) => m.status === 'disabled' },
+      { title: 'Email not confirmed yet', filter: (m) => m.status === 'pending' && !m.email_confirmed,
+        note: 'These users have not opened the confirmation link. ' +
+              'Accounts created by mistake can be deleted from Supabase > Authentication > Users.' },
+    ];
+
+    const nameOf = (m) => (m.first_name ? `${m.first_name} ${m.last_name ?? ''}`.trim() : m.email);
+
+    function el(tag, text, cls) {
+      const e = document.createElement(tag);
+      if (text != null) e.textContent = text;
+      if (cls) e.className = cls;
+      return e;
+    }
+
+    function actionButton(td, label, kind, onClick) {
+      const b = el('button', label, kind);
+      b.type = 'button';
+      b.addEventListener('click', onClick);
+      td.appendChild(b);
+    }
+
+    async function setMember(member, changes, question) {
+      if (question && !window.confirm(`${question}\n\n${nameOf(member)}`)) { await load(); return; }
+      const { error } = await supabase.rpc('admin_set_member', {
+        p_user_id: member.id, p_role: changes.role ?? null, p_status: changes.status ?? null,
+      });
+      if (error) showMessage(msg, friendlyError(error));
+      else showMessage(msg, 'Member updated.', 'success');
+      await load();
+    }
+
+    function roleSelect(m) {
+      const s = document.createElement('select');
+      s.setAttribute('aria-label', `Role of ${nameOf(m)}`);
+      ROLES.forEach(([v, l]) => {
+        const o = el('option', l);
+        o.value = v;
+        o.selected = v === m.role;
+        s.appendChild(o);
+      });
+      s.addEventListener('change', () =>
+        setMember(m, { role: s.value }, `Change the role to "${s.value}"?`));
+      return s;
+    }
+
+    function actions(td, m) {
+      if (m.id === me.id) { td.textContent = '(you)'; return; }   // prevents self lock-out
+      if (m.status === 'pending' && m.email_confirmed) {
+        actionButton(td, 'Approve', '', () => setMember(m, { status: 'active' }, 'Approve this account?'));
+        actionButton(td, 'Reject', 'danger', () => setMember(m, { status: 'disabled' }, 'Reject (disable) this account?'));
+      } else if (m.status === 'active') {
+        td.appendChild(roleSelect(m));
+        actionButton(td, 'Disable', 'danger', () => setMember(m, { status: 'disabled' }, 'Disable this account?'));
+      } else if (m.status === 'disabled') {
+        actionButton(td, 'Re-enable', 'secondary', () => setMember(m, { status: 'active' }, 'Re-enable this account?'));
+      }
+    }
+
+    function table(headers, rows) {
+      const scroller = el('div', null, 'table-scroll cards');
+      const t = document.createElement('table');
+      const thead = document.createElement('thead');
+      const tr = document.createElement('tr');
+      headers.forEach((h) => tr.appendChild(el('th', h)));
+      thead.appendChild(tr);
+      t.appendChild(thead);
+      const tbody = document.createElement('tbody');
+      rows.forEach((r) => {
+        // Labels let the CSS turn rows into cards on narrow screens.
+        [...r.children].forEach((td, i) => { if (headers[i]) td.dataset.label = headers[i]; });
+        tbody.appendChild(r);
+      });
+      t.appendChild(tbody);
+      scroller.appendChild(t);
+      return scroller;
+    }
+
+    function renderSection(section, members) {
+      const wrap = el('section', null, 'card');
+      wrap.appendChild(el('h2', `${section.title} (${members.length})`));
+      if (section.note) wrap.appendChild(el('p', section.note, 'hint'));
+      if (!members.length) { wrap.appendChild(el('p', 'None.', 'hint')); return wrap; }
+      const rows = members.map((m) => {
+        const tr = document.createElement('tr');
+        [nameOf(m), m.email, m.role, formatDate(m.created_at),
+          m.last_sign_in_at ? formatDateTime(m.last_sign_in_at) : '—'].forEach((v) => tr.appendChild(el('td', v)));
+        const td = el('td', null, 'actions');
+        actions(td, m);
+        tr.appendChild(td);
+        return tr;
+      });
+      wrap.appendChild(table(['Name', 'Email', 'Role', 'Registered', 'Last login', 'Actions'], rows));
+      return wrap;
+    }
+
+    // Sub-team leaders: default leader of the tasks of each sub-team
+    function renderLeaders() {
+      const wrap = el('section', null, 'card');
+      wrap.appendChild(el('h2', 'Department leaders'));
+      wrap.appendChild(el('p', 'The leader of a department is the default leader of the tasks of that department. ' +
+        'A different leader can be set on each task in the Gantt task editor. ' +
+        'Only active teamleaders and admins can be leaders.', 'hint'));
+      const eligible = MEMBERS.filter((m) => m.status === 'active' && (m.role === 'teamleader' || m.role === 'admin'));
+      const rows = TEAMS.map((team) => {
+        const tr = document.createElement('tr');
+        tr.appendChild(el('td', `${team} – ${TEAM_NAMES[team]}`));
+        const td = document.createElement('td');
+        const s = document.createElement('select');
+        s.setAttribute('aria-label', `Leader of ${team}`);
+        const none = el('option', '— none —');
+        none.value = '';
+        s.appendChild(none);
+        const current = LEADERS.get(team) ?? '';
+        const options = eligible.slice();
+        const stale = current && !eligible.some((m) => m.id === current) ? MEMBERS.find((m) => m.id === current) : null;
+        if (stale) options.push(stale);
+        options.forEach((m) => {
+          const o = el('option', `${nameOf(m)} (${m.role})`);
+          o.value = m.id;
+          o.selected = m.id === current;
+          s.appendChild(o);
+        });
+        s.addEventListener('change', async () => {
+          const { error } = s.value
+            ? await supabase.from('team_leaders').upsert({ team, leader_id: s.value })
+            : await supabase.from('team_leaders').delete().eq('team', team);
+          if (error) showMessage(msg, friendlyError(error));
+          else showMessage(msg, `Leader of ${team} updated.`, 'success');
+          await load();
+        });
+        td.appendChild(s);
+        if (stale) td.appendChild(el('span', ' Not a valid leader any more: choose another one.', 'hint'));
+        tr.appendChild(td);
+        return tr;
+      });
+      wrap.appendChild(table(['Department', 'Leader'], rows));
+      return wrap;
+    }
+
+    async function load() {
+      const [m, l] = await Promise.all([
+        supabase.rpc('admin_list_members'),
+        supabase.from('team_leaders').select('team, leader_id'),
+      ]);
+      if (m.error || l.error) { showMessage(msg, friendlyError(m.error || l.error)); return; }
+      MEMBERS = m.data;
+      LEADERS = new Map(l.data.map((x) => [x.team, x.leader_id]));
+      container.replaceChildren(
+        renderSection(SECTIONS[0], MEMBERS.filter(SECTIONS[0].filter)),
+        renderLeaders(),
+        ...SECTIONS.slice(1).map((s) => renderSection(s, MEMBERS.filter(s.filter))),
+      );
+    }
+
+    if (me) await load();
+  </script>
+</body>
+</html>

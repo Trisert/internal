@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>J2050 Team Management – Welcome</title>
+  <script>
+    // Apply the saved theme before the first paint (key documented in js/theme.js).
+    try {
+      const saved = localStorage.getItem('j2050-theme');
+      document.documentElement.dataset.theme =
+        saved === 'dark' || saved === 'light' ? saved
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch {
+      document.documentElement.dataset.theme =
+        matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/theme.js"></script>
+</head>
+<body class="login-page">
+  <main class="login-box">
+    <div class="auth-brand">
+      <span class="brand-logo" role="img" aria-label="J2050">
+        <img class="logo-on-light" src="img/j2050-logo-light.png" width="239" height="88" alt="">
+        <img class="logo-on-dark" src="img/j2050-logo-dark.png" width="241" height="88" alt="">
+      </span>
+      <span class="brand-sub">University of Padova</span>
+    </div>
+    <h1>Welcome</h1>
+    <p id="account-email" class="hint"></p>
+
+    <!-- Step 1: name and surname -->
+    <form id="name-form" hidden novalidate>
+      <p>Enter your name as it will be shown to the team.</p>
+      <label for="first-name">First name</label>
+      <input id="first-name" type="text" maxlength="60" autocomplete="given-name" required>
+      <label for="last-name">Last name</label>
+      <input id="last-name" type="text" maxlength="60" autocomplete="family-name" required>
+      <button id="name-btn" type="submit">Save</button>
+    </form>
+
+    <!-- Step 2: waiting for approval -->
+    <section id="pending-box" hidden>
+      <p>Your account is <strong>awaiting approval</strong> by an administrator.
+         You will be able to use the site once it is approved.</p>
+      <button id="refresh-btn" type="button">Check again</button>
+    </section>
+
+    <!-- Disabled account -->
+    <section id="disabled-box" hidden>
+      <p>Your account is <strong>disabled</strong>. Contact an administrator.</p>
+    </section>
+
+    <p id="welcome-msg" class="message" role="alert" hidden></p>
+    <p class="links"><a href="#" id="logout-link">Log out</a></p>
+    <p class="auth-foot">Internal tool · Authorised members only</p>
+  </main>
+
+  <script type="module">
+    import { supabase } from './js/config.js';
+    import { getSessionProfile, isReady, signOut, friendlyError, showMessage } from './js/auth.js';
+
+    const msg = document.getElementById('welcome-msg');
+    const nameForm = document.getElementById('name-form');
+    const pendingBox = document.getElementById('pending-box');
+    const disabledBox = document.getElementById('disabled-box');
+
+    document.getElementById('logout-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      signOut();
+    });
+
+    async function render() {
+      showMessage(msg, '');
+      let result;
+      try { result = await getSessionProfile(); }
+      catch (err) { showMessage(msg, friendlyError(err)); return; }
+
+      const { session, profile } = result;
+      if (!session) { window.location.replace('index.html'); return; }
+      if (isReady(profile)) { window.location.replace('shifts.html'); return; }
+
+      document.getElementById('account-email').textContent = profile.email ?? '';
+      const missingName = !profile.first_name || !profile.last_name;
+
+      nameForm.hidden = !missingName || profile.status === 'disabled';
+      pendingBox.hidden = missingName || profile.status !== 'pending';
+      disabledBox.hidden = profile.status !== 'disabled';
+
+      if (missingName) {
+        document.getElementById('first-name').value = profile.first_name ?? '';
+        document.getElementById('last-name').value = profile.last_name ?? '';
+      }
+      return profile;
+    }
+
+    nameForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const firstName = document.getElementById('first-name').value.trim();
+      const lastName = document.getElementById('last-name').value.trim();
+      if (!firstName || !lastName) {
+        showMessage(msg, 'First name and last name are both required.');
+        return;
+      }
+      const button = document.getElementById('name-btn');
+      button.disabled = true;
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error } = await supabase
+        .from('profiles')
+        .update({ first_name: firstName, last_name: lastName })
+        .eq('id', session.user.id);
+      button.disabled = false;
+      if (error) { showMessage(msg, friendlyError(error)); return; }
+      await render();
+    });
+
+    document.getElementById('refresh-btn').addEventListener('click', render);
+
+    await render();
+  </script>
+</body>
+</html>

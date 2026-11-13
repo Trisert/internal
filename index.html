@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="only light">
+  <title>J2050 Team Management – Login</title>
+  <script>
+    // Apply the saved theme before the first paint (key documented in js/theme.js).
+    try {
+      const saved = localStorage.getItem('j2050-theme');
+      document.documentElement.dataset.theme =
+        saved === 'dark' || saved === 'light' ? saved
+          : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    } catch {
+      document.documentElement.dataset.theme =
+        matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/theme.js"></script>
+</head>
+<body class="login-page">
+  <main class="login-box">
+    <div class="auth-brand">
+      <span class="brand-logo" role="img" aria-label="J2050">
+        <img class="logo-on-light" src="img/j2050-logo-light.png" width="239" height="88" alt="">
+        <img class="logo-on-dark" src="img/j2050-logo-dark.png" width="241" height="88" alt="">
+      </span>
+      <span class="brand-sub">University of Padova</span>
+    </div>
+    <h1>Log in</h1>
+    <form id="login-form" novalidate>
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button id="login-btn" type="submit">Log in</button>
+      <p id="login-msg" class="message" role="alert" hidden></p>
+    </form>
+    <p class="links">
+      <a href="register.html">Create account</a>
+      <a href="forgot.html">Forgot password?</a>
+    </p>
+    <p class="auth-foot">Internal tool · Authorised members only</p>
+  </main>
+
+  <script type="module">
+    import { supabase } from './js/config.js';
+    import { getSessionProfile, landingPage, friendlyError, showMessage } from './js/auth.js';
+
+    const msg = document.getElementById('login-msg');
+
+    // Already logged in (also after opening the email confirmation link)
+    async function goToLanding() {
+      const { session, profile } = await getSessionProfile();
+      if (session) window.location.replace(landingPage(profile));
+    }
+    try { await goToLanding(); } catch (err) { showMessage(msg, friendlyError(err)); }
+
+    const form = document.getElementById('login-form');
+    const button = document.getElementById('login-btn');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      showMessage(msg, '');
+      button.disabled = true;
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: document.getElementById('email').value.trim(),
+        password: document.getElementById('password').value,
+      });
+
+      if (error) {
+        showMessage(msg, friendlyError(error));
+        button.disabled = false;
+        return;
+      }
+      try { await goToLanding(); } catch (err) {
+        showMessage(msg, friendlyError(err));
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
